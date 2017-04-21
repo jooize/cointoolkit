@@ -583,23 +583,35 @@ $(document).ready(function() {
 	var nuBasedExplorer = {
 		listUnspent: function(endpoint) {
 			return function(redeem){
-				var msgSucess = '<span class="glyphicon glyphicon-info-sign"></span> Retrieved unspent inputs from address <a href="' + endpoint + '/address/'+redeem.addr+'/1/newest" target="_blank">'+redeem.addr+'</a>'		
+				var msgSucess = '<span class="glyphicon glyphicon-info-sign"></span> Retrieved unspent inputs from address <a href="' + endpoint + '/address/'+redeem.addr+'/1/newest" target="_blank">'+redeem.addr+'</a>'
 				var msgError = '<span class="glyphicon glyphicon-exclamation-sign"></span> Unexpected error, unable to retrieve unspent outputs! Is <a href="' + endpoint + '/">' + endpoint + '/</a> down?';
 				$.ajax ({
 					type: "GET",
-					url: 'https://crossorigin.me/' + endpoint + '/api/v1/addressUnspent/' + redeem.addr,
+					data: {
+						format: "json",
+						q: "select * from json where url='" + endpoint + "/api/v1/addressUnspent/" + redeem.addr + "'"
+					},
+					url: 'https://query.yahooapis.com/v1/public/yql',
 					dataType: "json",
 					error: function(data) {
 						$("#redeemFromStatus").removeClass('hidden').html(msgError);
 						$("#redeemFromBtn").html("Load").attr('disabled',false);
 					},
 					success: function(data) {
+						if (data.hasOwnProperty('query') && data.query.hasOwnProperty('results') && data.query.results.hasOwnProperty('json') && data.query.results.json.hasOwnProperty('json')) {
+							data = data.query.results.json.json;
+						} else if (data.hasOwnProperty('query') && data.query.hasOwnProperty('results') && data.query.results.hasOwnProperty('json')){
+							data = [data.query.results.json];
+						} else {
+							data = [];
+						}
+
 						if (coinjs.debug) {console.log(data)};
 						if (data.length == 0) {
 							$("#redeemFromStatus").removeClass('hidden').html(msgError);
 							$("#redeemFromBtn").html("Load").attr('disabled',false);
 						} else {
-							for(var i=0;i<data.length;i++){						
+							for(var i=0;i<data.length;i++){
 								if (redeem.isMultisig==true) {
 									var script = $("#redeemFrom").val();
 								} else {
@@ -607,7 +619,7 @@ $(document).ready(function() {
 									script = script.replace('OP_DUP OP_HASH160 ', '76a914');
 									script = script.replace(' OP_EQUALVERIFY OP_CHECKSIG', '88ac');
 								}
-								
+
 								addOutput(data[i].txHash, data[i].outNum, script, data[i].val);
 							}
 							$("#redeemFromAddress").removeClass('hidden').html(msgSucess);
@@ -624,12 +636,22 @@ $(document).ready(function() {
 			return function(txid, index, callback) {
 				$.ajax ({
 					type: "GET",
-					url: 'https://crossorigin.me/' + endpoint + '/api/v1/txDetails/' + txid,
+					data: {
+						format: "json",
+						q: "select * from json where url='" + endpoint + '/api/v1/txDetails/' + txid + "'"
+					},
+					url: 'https://query.yahooapis.com/v1/public/yql',
 					dataType: "json",
 					error: function(data) {
 						callback(false);
 					},
 					success: function(data) {
+						if (data.hasOwnProperty('query') && data.query.hasOwnProperty('results') && data.query.results.hasOwnProperty('json') && data.query.results.json.hasOwnProperty('json')) {
+							data = data.query.results.json.json;
+						} else {
+							data = [];
+						}
+
 						if (coinjs.debug) {console.log(data)};
 						if (data.exists && data.outputs[index]) {
 							callback(parseInt(data.outputs[index].outValInt*("1e"+coinjs.decimalPlaces), 10));
@@ -646,26 +668,142 @@ $(document).ready(function() {
 				$(thisbtn).html('Please wait, loading... <span class="glyphicon glyphicon-refresh glyphicon-refresh-animate"></span>').attr('disabled',true);
 				$.ajax ({
 					type: "POST",
-					url: endpoint + "/api/sendrawtx",
-					data: {"hex":$("#rawTransaction").val()},
+					url: endpoint + "/api/v1/sendrawtx",
+					data: {
+						"rawTx": $("#rawTransaction").val(),
+						"checkInputs": 1
+					},
 					dataType: "json",
 					error: function(data) {
+						data = $.parseJSON(data.responseText);
 						var r = '';
 						r += (data.data) ? data.data : '';
-						r += (data.message) ? ' '+data.message : '';
+						r += (data.status) ? ' '+data.status : '';
 						r = (r!='') ? r : ' Failed to broadcast. Internal server error';
 						$("#rawTransactionStatus").addClass('alert-danger').removeClass('alert-success').removeClass("hidden").html(r).prepend('<span class="glyphicon glyphicon-exclamation-sign"></span>');
 					},
 					success: function(data) {
-						if((data.status && data.data) && data.status=='success'){
+						data = $.parseJSON(data.responseText);
+						if(data.success==true){
 							$("#rawTransactionStatus").addClass('alert-success').removeClass('alert-danger').removeClass("hidden").html(' Txid: '+data.data);
 						} else {
-							$("#rawTransactionStatus").addClass('alert-danger').removeClass('alert-success').removeClass("hidden").html(' Unexpected error, please try again').prepend('<span class="glyphicon glyphicon-exclamation-sign"></span>');
-						}				
+							$("#rawTransactionStatus").addClass('alert-danger').removeClass('alert-success').removeClass("hidden").html(' Error'+data.status).prepend('<span class="glyphicon glyphicon-exclamation-sign"></span>');
+						}
 					},
 					complete: function(data, status) {
 						$("#rawTransactionStatus").fadeOut().fadeIn();
-						$(thisbtn).html(orig_html).attr('disabled',false);				
+						$(thisbtn).html(orig_html).attr('disabled',false);
+					}
+				});
+			}
+		}
+	};
+
+	var bcBasedExplorer = {
+		listUnspent: function(endpoint) {
+			return function(redeem){
+				var msgSucess = '<span class="glyphicon glyphicon-info-sign"></span> Retrieved unspent inputs from address <a href="' + endpoint + '/address/'+redeem.addr+'/1/newest" target="_blank">'+redeem.addr+'</a>'
+				var msgError = '<span class="glyphicon glyphicon-exclamation-sign"></span> Unexpected error, unable to retrieve unspent outputs! Is <a href="' + endpoint + '/">' + endpoint + '/</a> down?';
+				var msgError = '<span class="glyphicon glyphicon-exclamation-sign"></span> According to <a href="' + endpoint + '/">' + endpoint + '/</a> unspent balance for <a href="' + endpoint + '/address/'+redeem.addr+'/1/newest" target="_blank">'+redeem.addr+'</a> is 0';
+				$.ajax ({
+					type: "GET",
+					url: endpoint + '/api/v1/unspent/' + redeem.addr,
+					dataType: "json",
+					error: function(data) {
+						$("#redeemFromStatus").removeClass('hidden').html(msgError);
+						$("#redeemFromBtn").html("Load").attr('disabled',false);
+					},
+					success: function(data) {
+						if (coinjs.debug) {console.log(data)};
+						if (data.txs.length == 0) {
+							$("#redeemFromStatus").removeClass('hidden').html(msgError);
+							$("#redeemFromBtn").html("Load").attr('disabled',false);
+						} else {
+							for(var i=0;i<data.txs.length;i++){
+								if (redeem.isMultisig==true) {
+									var script = $("#redeemFrom").val();
+								} else {
+									var script = data.txs[i].script;
+									script = script.replace('OP_DUP OP_HASH160 ', '76a914');
+									script = script.replace(' OP_EQUALVERIFY', '88');
+									script = script.replace(' OP_CHECKSIG', 'ac');
+								}
+
+								var amount = (data.txs[i].amount/("1e"+coinjs.decimalPlaces)).toFixed(coinjs.decimalPlaces);
+
+								addOutput(data.txs[i].hash, data.txs[i].out_index, script, amount);
+							}
+							$("#redeemFromAddress").removeClass('hidden').html(msgSucess);
+						}
+					},
+					complete: function(data, status) {
+						$("#redeemFromBtn").html("Load").attr('disabled',false);
+						totalInputAmount();
+					}
+				});
+			}
+		},
+		getInputAmount: function(endpoint) {
+			return function(txid, index, callback) {
+				$.ajax ({
+					type: "GET",
+					data: {
+						format: "json",
+						q: "select * from json where url='" + endpoint + '/api/v1/tx/' + txid + "'"
+					},
+					url: 'https://query.yahooapis.com/v1/public/yql',
+					dataType: "json",
+					error: function(data) {
+						callback(false);
+					},
+					success: function(data) {
+						if (data.hasOwnProperty('query') && data.query.hasOwnProperty('results') && data.query.results.hasOwnProperty('json') && data.query.results.json.hasOwnProperty('json')) {
+							data = data.query.results.json.json;
+						} else {
+							data = [];
+						}
+
+						if (coinjs.debug) {console.log(data)};
+						if (data.timestamp && data.outputs[index]) {
+							callback(parseInt(data.outputs[index].out_val, 10));
+						} else {
+							callback(false);
+						}
+					}
+				});
+			}
+		},
+		broadcast: function(endpoint) {
+			return function(thisbtn){
+				var orig_html = $(thisbtn).html();
+				$(thisbtn).html('Please wait, loading... <span class="glyphicon glyphicon-refresh glyphicon-refresh-animate"></span>').attr('disabled',true);
+				$.ajax ({
+					type: "POST",
+					url: endpoint + "/api/v1/sendrawtx",
+					data: {
+						"rawTx": $("#rawTransaction").val(),
+						"checkInputs": 1
+					},
+					dataType: "json",
+					error: function(data) {
+						data = $.parseJSON(data.responseText);
+						var r = '';
+						r += (data.data) ? data.data : '';
+						r += (data.status) ? ' '+data.status : '';
+						r = (r!='') ? r : ' Failed to broadcast. Internal server error';
+						$("#rawTransactionStatus").addClass('alert-danger').removeClass('alert-success').removeClass("hidden").html(r).prepend('<span class="glyphicon glyphicon-exclamation-sign"></span>');
+					},
+					success: function(data) {
+						data = $.parseJSON(data.responseText);
+						if(data.success==true){
+							$("#rawTransactionStatus").addClass('alert-success').removeClass('alert-danger').removeClass("hidden").html(' Txid: '+data.data);
+						} else {
+							$("#rawTransactionStatus").addClass('alert-danger').removeClass('alert-success').removeClass("hidden").html(' Error'+data.status).prepend('<span class="glyphicon glyphicon-exclamation-sign"></span>');
+						}
+					},
+					complete: function(data, status) {
+						$("#rawTransactionStatus").fadeOut().fadeIn();
+						$(thisbtn).html(orig_html).attr('disabled',false);
 					}
 				});
 			}
@@ -920,7 +1058,9 @@ $(document).ready(function() {
 		},
 		nubits: {
 			listUnspent: {
+				"nuexplorer.ddns.net": nuBasedExplorer.listUnspent('https://nuexplorer.ddns.net'),
 				"blockexplorer.nu": nuBasedExplorer.listUnspent('https://blockexplorer.nu'),
+
 				"FLOT @dysconnect git-multisig repository": function(redeem) {
 					gitmultisig_listunspent(redeem, "dc-tcs/flot-operations");
 				},
@@ -932,43 +1072,48 @@ $(document).ready(function() {
 				},
 			},
 			broadcast: {
+				"nuexplorer.ddns.net": nuBasedExplorer.broadcast('https://nuexplorer.ddns.net'),
 				"blockexplorer.nu": nuBasedExplorer.broadcast('https://blockexplorer.nu')
 			},
 			getInputAmount: {
+				"nuexplorer.ddns.net": nuBasedExplorer.getInputAmount('https://nuexplorer.ddns.net'),
 				"blockexplorer.nu": nuBasedExplorer.getInputAmount('https://blockexplorer.nu')
 			}
 		},
 		nushares: {
 			listUnspent: {
+				"nuexplorer.ddns.net": nuBasedExplorer.listUnspent('https://nuexplorer.ddns.net'),
 				"blockexplorer.nu": nuBasedExplorer.listUnspent('https://blockexplorer.nu')
 			},
 			broadcast: {
+				"nuexplorer.ddns.net": nuBasedExplorer.broadcast('https://nuexplorer.ddns.net'),
 				"blockexplorer.nu": nuBasedExplorer.broadcast('https://blockexplorer.nu')
 			},
 			getInputAmount: {
+				"nuexplorer.ddns.net": nuBasedExplorer.getInputAmount('https://nuexplorer.ddns.net'),
 				"blockexplorer.nu": nuBasedExplorer.getInputAmount('https://blockexplorer.nu')
 			}
 		},
 		blockcredits: {
 			listUnspent: {
-				"bcblockexplorer.com": nuBasedExplorer.listUnspent('https://bcblockexplorer.com')
+				"bcblockexplorer.com": bcBasedExplorer.listUnspent('https://bcblockexplorer.com')
 			},
 			broadcast: {
-				"bcblockexplorer.com": nuBasedExplorer.broadcast('https://bcblockexplorer.com')
+				"bcblockexplorer.com": bcBasedExplorer.broadcast('https://bcblockexplorer.com')
 			},
 			getInputAmount: {
-				"bcblockexplorer.com": nuBasedExplorer.getInputAmount('https://bcblockexplorer.com')
+				"bcblockexplorer.com": bcBasedExplorer.getInputAmount('https://bcblockexplorer.com')
 			}
 		},
 		blockshares: {
 			listUnspent: {
-				"bcblockexplorer.com": nuBasedExplorer.listUnspent('https://bcblockexplorer.com')
+				"bcblockexplorer.com": bcBasedExplorer.listUnspent('https://bcblockexplorer.com')
 			},
 			broadcast: {
-				"bcblockexplorer.com": nuBasedExplorer.broadcast('https://bcblockexplorer.com')
+				"bcblockexplorer.com": bcBasedExplorer.broadcast('https://bcblockexplorer.com')
 			},
 			getInputAmount: {
-				"bcblockexplorer.com": nuBasedExplorer.getInputAmount('https://bcblockexplorer.com')
+				"bcblockexplorer.com": bcBasedExplorer.getInputAmount('https://bcblockexplorer.com')
 			}
 		}
 	}
