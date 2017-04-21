@@ -1,6 +1,6 @@
 $(document).ready(function() {
 
-	if(window.location.hostname == "ttutdxh-nubits.github.io" && window.location.protocol != 'https:') {
+	if(window.location.hostname == "jooize.github.io" && window.location.protocol != 'https:') {
 		window.location.href = "https:" + window.location.href.substring(window.location.protocol.length);
 	}
 
@@ -1096,24 +1096,24 @@ $(document).ready(function() {
 		},
 		blockcredits: {
 			listUnspent: {
-				"bcblockexplorer.com": bcBasedExplorer.listUnspent('https://bcblockexplorer.com')
+				"bcblockexplorer.com": bcBasedExplorer.listUnspent('http://bcblockexplorer.com')
 			},
 			broadcast: {
-				"bcblockexplorer.com": bcBasedExplorer.broadcast('https://bcblockexplorer.com')
+				"bcblockexplorer.com": bcBasedExplorer.broadcast('http://bcblockexplorer.com')
 			},
 			getInputAmount: {
-				"bcblockexplorer.com": bcBasedExplorer.getInputAmount('https://bcblockexplorer.com')
+				"bcblockexplorer.com": bcBasedExplorer.getInputAmount('http://bcblockexplorer.com')
 			}
 		},
 		blockshares: {
 			listUnspent: {
-				"bcblockexplorer.com": bcBasedExplorer.listUnspent('https://bcblockexplorer.com')
+				"bcblockexplorer.com": bcBasedExplorer.listUnspent('http://bcblockexplorer.com')
 			},
 			broadcast: {
-				"bcblockexplorer.com": bcBasedExplorer.broadcast('https://bcblockexplorer.com')
+				"bcblockexplorer.com": bcBasedExplorer.broadcast('http://bcblockexplorer.com')
 			},
 			getInputAmount: {
-				"bcblockexplorer.com": bcBasedExplorer.getInputAmount('https://bcblockexplorer.com')
+				"bcblockexplorer.com": bcBasedExplorer.getInputAmount('http://bcblockexplorer.com')
 			}
 		}
 	}
